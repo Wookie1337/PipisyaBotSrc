@@ -13,10 +13,10 @@ class DataBase:
     """
     Асинхронный класс для работы с базой данных SQLite.
     Предоставляет удобный интерфейс для выполнения CRUD-операций,
-    создания таблиц и управления транзакциями
+    создания таблиц и управления транзакциями.
     """
     def __init__(self, db_name: str):
-        self.db_name = db_name
+        self.db_name = db_name or "none.db"
         self.db = None
 
     async def __aenter__(self):
