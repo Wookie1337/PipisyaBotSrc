@@ -212,7 +212,7 @@ async def main():
         )
     }
 
-    async with DataBase("test.db") as db:
+    async with DataBase("database.db") as db:
         # Создание таблиц
         await db.create_table(
             "users",
