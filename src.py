@@ -16,7 +16,7 @@ class DataBase:
     создания таблиц и управления транзакциями.
     """
     def __init__(self, db_name: str):
-        self.db_name = db_name or "none.db"
+        self.db_name = db_name
         self.db = None
 
     async def __aenter__(self):
