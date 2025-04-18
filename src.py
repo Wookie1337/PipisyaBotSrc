@@ -97,8 +97,8 @@ class DataBase:
 # Класс для управления логикой игры
 class DickManager:
     CONFIG = {
-        "delay": timedelta(hours=24, minutes=0),
-        "time": {"h": 24, "m": 0, "s": 0},
+        "delay": timedelta(hours=0, minutes=1, seconds=0),
+        "time": {"h": 0, "m": 1, "s": 0},
         "max": 10,
         "min": -5,
         "date_format": "%Y-%m-%d %H:%M:%S",
@@ -120,83 +120,136 @@ class DickManager:
 
     def __init__(self, database: DataBase):
         self.db = database
+        self.data = None
 
-    async def get_data(self, table: str, user_id: int):
-        return await self.db.get(table, {"id": user_id})
 
+    async def get_data(self, table: str, user_id: int) -> Optional[Dict]:
+        data = await self.db.get(
+            table = table,
+            where = {"id": user_id}
+        )
+        return data
+    
+    
     async def add_group(self, groups: list, user_id: int, chat_id: int):
-        if chat_id not in groups:
-            groups.append(chat_id)
-            await self.db.update("users", {"groups": str(groups)}, {"id": user_id})
+        if chat_id in groups: return
+        groups.append(chat_id)
+        await self.db.update(
+            table   = "users",
+            data    = {"groups": str(groups)},
+            where   = {"id": user_id}
+        )
 
-    async def get_time_next_play(self, last_played):
+
+    async def get_time_next_play(self, last_played) -> Dict[str, int]:
         now = datetime.now()
         delta = now - last_played
-        remaining = self.CONFIG["delay"] - delta
+        delay = self.CONFIG["delay"]
+        
+        remaining = delay - delta
         if remaining.total_seconds() <= 0:
             return {"h": 0, "m": 0, "s": 0}
+
         total_seconds = int(remaining.total_seconds())
         h, rem = divmod(total_seconds, 3600)
         m, s = divmod(rem, 60)
+        
         return {"h": h, "m": m, "s": s}
+    
 
-    async def get_top(self, table: str):
-        TOP_HEADER = "Топ 10 игроков\n"
-        data = await self.db.find(table, add_query="ORDER BY size DESC LIMIT 10")
+    async def get_top(self, table: str) -> str:
+        TOP_HEADER = "Топ 10 игроков\n\n"
+        
+        data = await self.db.find(
+            table=table,
+            add_query="ORDER BY size DESC LIMIT 10"
+        )
         if not data:
             return "Список топ игроков пуст."
+        
         lines = [
             f"{n}) [{user['username']}]({user['url']}) — {user['size']} см."
             for n, user in enumerate(data, start=1)
         ]
+        
         return TOP_HEADER + "\n".join(lines)
 
-    async def get_n_top(self, user_id: int, chat_id: int):
-        data = await self.db.find(f"group_{chat_id}", add_query="ORDER BY size DESC")
+
+    async def get_n_top(self, user_id: int, chat_id: int) -> int:
+        data = await self.db.find(
+            table = f"group_{chat_id}",
+            add_query = "ORDER BY size DESC"
+        )
         if not data:
             return 0
         for index, user in enumerate(data, start=1):
             if user["id"] == user_id:
                 return index
+            
 
-    async def dick(self, user_id, username, chat_id):
-        user_data = await self.get_data("users", user_id)
-        group_data = await self.get_data(f"group_{chat_id}", user_id)
-        last_played = datetime.strptime(group_data["last_played"], self.CONFIG["date_format"])
-        format_data = {
-            "username": username,
-            "size": group_data["size"],
-            "top": await self.get_n_top(user_id, chat_id)
+    async def get_global_top(self) -> str:
+        return await self.get_top("users")
+
+    async def get_chat_top(self, chat_id) -> str:
+        return await self.get_top(f"group_{chat_id}")
+    
+    
+    async def dick(self, user_id, username, chat_id) -> str:
+        self.data = {
+            "users": await self.get_data("users", user_id),
+            "group": await self.get_data(f"group_{chat_id}", user_id)
         }
-        groups = eval(user_data["groups"])
+
+        last_played =  datetime.strptime(self.data["group"]["last_played"], self.CONFIG["date_format"])
+        format_data = {"username": username, "size": self.data["group"]["size"], "top": await self.get_n_top(user_id, chat_id)}
+        groups = ast.literal_eval(self.data["users"]["groups"])
+
         await self.add_group(groups, user_id, chat_id)
 
         if (datetime.now() - last_played) > self.CONFIG["delay"]:
             while (random_size := random.randint(self.CONFIG["min"], self.CONFIG["max"])) == 0:
                 continue
-            new_size = max(group_data["size"] + random_size, 0)
-            group_data["size"] = new_size
-            group_data["last_played"] = datetime.now().strftime(self.CONFIG["date_format"])
-            await self.db.update(f"group_{chat_id}", group_data, {"id": user_id})
+            
+            new_size = self.data["group"]["size"] + random_size
+            if new_size < 0: new_size = 0
 
-            format_data.update({
-                "state": "вырос" if random_size > 0 else "сократился",
-                "size": new_size,
-                "add_size": abs(random_size),
-                "top": await self.get_n_top(user_id, chat_id)
-            })
+            self.data["group"]["size"] = new_size
+            self.data["group"]["last_played"] = datetime.strftime(datetime.now(), self.CONFIG["date_format"])
 
-            sizes = []
-            for chat in groups:
-                data = await self.db.get(f"group_{chat}", {"id": user_id})
-                if data and "size" in data:
-                    sizes.append(data["size"])
-            await self.db.update("users", {"size": max(sizes)}, {"id": user_id})
+            await self.db.update(
+                table   = f"group_{chat_id}",
+                data    = self.data["group"],
+                where   = {"id": user_id}
+            )
+            
+            format_data["state"]    = "вырос"       if random_size > 0 else "сократился"
+            format_data["size"]     = new_size
+            format_data["add_size"] = random_size   if random_size > 0 else abs(random_size)
+            format_data["top"]      = await self.get_n_top(user_id, chat_id)
 
-            return self.CONFIG["messages"]["yes"].format(**format_data, **self.CONFIG["time"])
+            dick_sizes = []
+            for chat_id in groups:
+                data = await self.db.get(f"group_{chat_id}", {"id": user_id})
+                if (value := data["size"]) != None:
+                    dick_sizes.append(value)
+            
+            await self.db.update(
+                table   = "users",
+                data    = {"size": max(dick_sizes)},
+                where   = {"id": user_id}
+            )
+
+            return self.CONFIG["messages"]["yes"].format(
+                **format_data,
+                **self.CONFIG["time"]
+            )
+        
         else:
-            time_remaining = await self.get_time_next_play(last_played)
-            return self.CONFIG["messages"]["no"].format(**format_data, **time_remaining)
+            return self.CONFIG["messages"]["no"].format(
+                **format_data,
+                **await self.get_time_next_play(last_played)
+            )
+            
 
 
 # Основная функция инициализации и запуска бота
