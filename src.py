@@ -97,8 +97,8 @@ class DataBase:
 # Класс для управления логикой игры
 class DickManager:
     CONFIG = {
-        "delay": timedelta(hours=0, minutes=1),
-        "time": {"h": 0, "m": 1, "s": 0},
+        "delay": timedelta(hours=24, minutes=0),
+        "time": {"h": 24, "m": 0, "s": 0},
         "max": 10,
         "min": -5,
         "date_format": "%Y-%m-%d %H:%M:%S",
