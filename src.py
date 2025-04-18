@@ -279,7 +279,7 @@ async def main() -> None:
         )
     }
 
-    async with DataBase("test.db") as db:
+    async with DataBase("database.db") as db:
         await db.create_table(
             table="users",
             schema={
