@@ -1,4 +1,5 @@
 VERSION="0.0.1"
+API_TOKEN = 'YOUR_BOT_API_TOKEN'
 
 import ast
 import random
@@ -229,8 +230,6 @@ class DickManager:
 
 
 # === Основной код бота ===
-API_TOKEN = 'YOUR_BOT_API_TOKEN'
-
 
 async def ensure_user_in_db(db: DataBase, table: str, user_id: int, first_name: str, username: str, url: str) -> None:
     await db.insert(table=table, data={"id": user_id, "firstname": first_name, "username": username, "url": url})
