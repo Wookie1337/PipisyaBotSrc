@@ -1,3 +1,5 @@
+VERSION="0.0.1"
+
 import ast
 import random
 from typing import Optional, Dict, List, Tuple
