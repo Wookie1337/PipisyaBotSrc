@@ -1,4 +1,4 @@
-VERSION="0.0.1"
+VERSION="0.0.2"
 API_TOKEN = 'YOUR_BOT_API_TOKEN'
 
 import ast
