@@ -1,4 +1,4 @@
-VERSION="0.0.1"
+VERSION="0.0.2"
 API_TOKEN = 'YOUR_BOT_API_TOKEN'
 
 import ast
@@ -356,7 +356,12 @@ async def main() -> None:
                   \nКонтакты:\
                   \nСоздатель — @wookie1337""")
 
-        await dp.start_polling(bot, skip_updates=True)
+        #? Начало работы бота
+        updates = await bot.get_updates()
+        if updates:
+            last_update_id = updates[-1].update_id
+            await bot.get_updates(offset=last_update_id + 1)
+        await dp.start_polling(bot, drop_pending_updates=True)
 
 import asyncio
 asyncio.run(main())
